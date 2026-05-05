@@ -1,0 +1,129 @@
+import tkinter as tk
+from tkinter import StringVar, IntVar
+import ttkbootstrap as ttk
+from ttkbootstrap.constants import *
+
+# -----------------------------
+# Function to calculate values
+# -----------------------------
+def calculate(*args):
+    try:
+        bill = float(bill_var.get())
+        if bill < 0:
+            raise ValueError
+
+        tip_percent = tip_var.get()
+        diners = diners_var.get()
+
+        tip_amount = bill * (tip_percent / 100)
+        total = bill + tip_amount
+        per_person = total / diners
+
+        tip_result.set(f"${tip_amount:.2f}")
+        total_result.set(f"${total:.2f}")
+        per_person_result.set(f"${per_person:.2f}")
+
+    except ValueError:
+        tip_result.set("Invalid")
+        total_result.set("Invalid")
+        per_person_result.set("Invalid")
+
+
+# -----------------------------
+# Main Window
+# -----------------------------
+app = ttk.Window(themename="superhero")  # Try: darkly, cyborg, vapor
+app.title("Tip Calculator")
+app.geometry("420x500")
+app.resizable(False, False)
+
+# -----------------------------
+# Variables
+# -----------------------------
+bill_var = StringVar()
+tip_var = IntVar(value=15)
+diners_var = IntVar(value=1)
+
+tip_result = StringVar(value="$0.00")
+total_result = StringVar(value="$0.00")
+per_person_result = StringVar(value="$0.00")
+
+# -----------------------------
+# Main Frame (Card Style)
+# -----------------------------
+main_frame = ttk.Frame(app, padding=20)
+main_frame.pack(fill=BOTH, expand=True)
+
+# Title
+ttk.Label(
+    main_frame,
+    text="💰 Tip Calculator",
+    font=("Segoe UI", 20, "bold")
+).pack(pady=10)
+
+# -----------------------------
+# Bill Input
+# -----------------------------
+ttk.Label(main_frame, text="Bill Amount:", font=("Segoe UI", 11)).pack(anchor="w")
+
+bill_entry = ttk.Entry(main_frame, textvariable=bill_var, font=("Segoe UI", 12))
+bill_entry.pack(fill=X, pady=5)
+
+# -----------------------------
+# Tip Selection
+# -----------------------------
+ttk.Label(main_frame, text="Tip Percentage:", font=("Segoe UI", 11)).pack(anchor="w", pady=(10, 0))
+
+tip_frame = ttk.Frame(main_frame)
+tip_frame.pack(pady=5)
+
+ttk.Radiobutton(tip_frame, text="10%", variable=tip_var, value=10, bootstyle="info").pack(side=LEFT, padx=5)
+ttk.Radiobutton(tip_frame, text="15%", variable=tip_var, value=15, bootstyle="info").pack(side=LEFT, padx=5)
+ttk.Radiobutton(tip_frame, text="20%", variable=tip_var, value=20, bootstyle="info").pack(side=LEFT, padx=5)
+
+# -----------------------------
+# Diners Selection
+# -----------------------------
+ttk.Label(main_frame, text="Number of Diners:", font=("Segoe UI", 11)).pack(anchor="w", pady=(10, 0))
+
+diners_spinbox = ttk.Spinbox(main_frame, from_=1, to=6, textvariable=diners_var, width=5)
+diners_spinbox.pack(pady=5)
+
+# -----------------------------
+# Results Card
+# -----------------------------
+results_frame = ttk.Frame(main_frame, padding=15, bootstyle="secondary")
+results_frame.pack(fill=X, pady=15)
+
+ttk.Label(results_frame, text="Tip:", font=("Segoe UI", 11)).grid(row=0, column=0, sticky="w")
+ttk.Label(results_frame, textvariable=tip_result, font=("Segoe UI", 11, "bold")).grid(row=0, column=1, sticky="e")
+
+ttk.Label(results_frame, text="Total:", font=("Segoe UI", 11)).grid(row=1, column=0, sticky="w")
+ttk.Label(results_frame, textvariable=total_result, font=("Segoe UI", 11, "bold")).grid(row=1, column=1, sticky="e")
+
+ttk.Label(results_frame, text="Per Person:", font=("Segoe UI", 11)).grid(row=2, column=0, sticky="w")
+ttk.Label(results_frame, textvariable=per_person_result, font=("Segoe UI", 11, "bold")).grid(row=2, column=1, sticky="e")
+
+# Make columns expand evenly
+results_frame.columnconfigure(0, weight=1)
+results_frame.columnconfigure(1, weight=1)
+
+# -----------------------------
+# Exit Button
+# -----------------------------
+ttk.Button(
+    main_frame,
+    text="Exit",
+    command=app.quit,
+    bootstyle="danger"
+).pack(pady=10, fill=X)
+
+# -----------------------------
+# Auto Update Events
+# -----------------------------
+bill_var.trace_add("write", calculate)
+tip_var.trace_add("write", calculate)
+diners_var.trace_add("write", calculate)
+
+# Run app
+app.mainloop()
