@@ -1,10 +1,10 @@
 # =========================================================
-# SOL PUNCH OUT 6.0 — FULL GAME (SECTION 1 OF 3)
-# GLOBAL NON‑REPEATING QUESTIONS + MENU + EDUCATION
+# SOL PUNCH OUT 7.0 — FULL GAME (SECTION 1 OF 3)
+# GLOBAL NON‑REPEATING QUESTIONS + NAME + MENU + EDUCATION
 # =========================================================
 
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, simpledialog
 import random
 import json
 import os
@@ -47,7 +47,6 @@ writing_3 = [
      ["!", ".", "?", ","])
 ]
 
-# Generate 3rd grade questions
 for i in range(120):
     a = random.randint(1, 20)
     b = random.randint(1, 20)
@@ -105,7 +104,6 @@ writing_4 = [
      ["capital", "comma", "verb", "space"])
 ]
 
-# Generate 4th grade questions
 for i in range(120):
     a = random.randint(10, 50)
     b = random.randint(2, 12)
@@ -163,7 +161,6 @@ writing_5 = [
      ["persuasive", "fiction", "poetry", "drama"])
 ]
 
-# Generate 5th grade questions
 for i in range(120):
     b = random.randint(2, 12)
     answer = random.randint(2, 12)
@@ -204,7 +201,7 @@ BOSSES = [
 ]
 
 # =========================================================
-# MAIN GAME CLASS (SECTION 1 CONTENT)
+# MAIN GAME CLASS
 # =========================================================
 
 class SOLPunchOut:
@@ -212,19 +209,23 @@ class SOLPunchOut:
     def __init__(self, root):
 
         self.root = root
-        self.root.title("SOL Punch Out 6.0")
+        self.root.title("SOL Punch Out 7.0")
         self.root.geometry("1500x900")
         self.root.configure(bg="black")
 
-        # Game progress
+        # Player info
+        self.player_name = ""
         self.grade = "3"
-        self.education_wins = 0
-        self.boxing_wins = 0
 
-        # GLOBAL non‑repeating question list
+        # Progress
+        self.education_wins = 0      # rounds of 9 questions
+        self.boxing_wins = 0         # boxing victories (10 points each)
+        self.points = 0              # 10 per boxing win, 100 to win
+
+        # GLOBAL non‑repeating questions
         self.used_questions = []
 
-        # Boxing state flags (Section 2 will use these)
+        # Boxing state flags (used in Section 2)
         self.enemy_attacking = False
         self.counter_window_open = False
         self.counter_ready = False
@@ -234,13 +235,23 @@ class SOLPunchOut:
         self.blocking_up = False
         self.blocking_down = False
 
+        # Current boss index
+        self.current_boss = 0
+
+        # Question state
+        self.questions = []
+        self.question_index = 0
+        self.deferred_questions = []   # questions skipped to revisit
+        self.current_attempts = 0
+
         # Keybinds
         self.root.bind("<KeyPress-Up>", self.press_up)
         self.root.bind("<KeyRelease-Up>", self.release_up)
         self.root.bind("<KeyPress-Down>", self.press_down)
         self.root.bind("<KeyRelease-Down>", self.release_down)
-        self.root.bind("<space>", self.counter_attack)
-        self.root.bind("<Control-p>", self.save_game)
+
+        # Enter will be rebound contextually (questions / boxing)
+        self.root.bind("<Control-p>", self.pause_menu)
 
         self.start_menu()
 
@@ -248,12 +259,14 @@ class SOLPunchOut:
     # SAVE GAME
     # =====================================================
 
-    def save_game(self, event=None):
+    def save_game(self):
 
         data = {
             "grade": self.grade,
+            "player_name": self.player_name,
             "education_wins": self.education_wins,
             "boxing_wins": self.boxing_wins,
+            "points": self.points,
             "used_questions": self.used_questions,
             "current_boss": self.current_boss
         }
@@ -262,6 +275,20 @@ class SOLPunchOut:
             json.dump(data, file)
 
         messagebox.showinfo("Saved", "Game Saved!")
+
+    # =====================================================
+    # PAUSE MENU (CTRL+P)
+    # =====================================================
+
+    def pause_menu(self, event=None):
+
+        if messagebox.askyesno(
+            "Pause",
+            "Do you want to SAVE and quit?\n\nYes = Save & Quit\nNo = Continue Playing"
+        ):
+            self.save_game()
+            self.root.destroy()
+        # else: just continue
 
     # =====================================================
     # LOAD GAME
@@ -277,8 +304,10 @@ class SOLPunchOut:
             data = json.load(file)
 
         self.grade = data["grade"]
+        self.player_name = data.get("player_name", "")
         self.education_wins = data["education_wins"]
         self.boxing_wins = data["boxing_wins"]
+        self.points = data.get("points", self.boxing_wins * 10)
         self.used_questions = data["used_questions"]
         self.current_boss = data["current_boss"]
 
@@ -359,11 +388,17 @@ class SOLPunchOut:
         self.grade = self.grade_var.get()
         self.education_wins = 0
         self.boxing_wins = 0
+        self.points = 0
 
         # GLOBAL non‑repeat list resets ONLY on new game
         self.used_questions = []
-
         self.current_boss = 0
+
+        # Ask for player name
+        self.player_name = simpledialog.askstring(
+            "Player Name",
+            "Enter your boxer name:"
+        ) or "Champion"
 
         self.education_instructions()
 
@@ -378,52 +413,63 @@ class SOLPunchOut:
         instructions = f"""
 EDUCATIONAL ROUND
 
-Education Wins: {self.education_wins}/10
+Player: {self.player_name}
+Grade: {self.grade}
+
+Education Rounds Cleared: {self.education_wins}/10
 Boxing Wins: {self.boxing_wins}/10
+Points: {self.points}/100
 
+• 9 Questions per round (3 Reading, 3 Writing, 3 Math)
 • Questions NEVER repeat globally
-• Press CTRL + P to save
-• Complete questions to fight
+• Press CTRL + P to pause and save
+• Answer all 9 correctly to fight
 
-Press ENTER to begin.
+Press ENTER to begin questions.
 """
 
         tk.Label(
             self.root,
             text=instructions,
-            font=("Arial", 28),
+            font=("Arial", 26),
             fg="white",
             bg="black",
             justify="left"
-        ).pack(pady=150)
+        ).pack(pady=120)
 
         self.root.bind("<Return>", self.start_questions)
 
     # =====================================================
-    # START QUESTIONS
+    # START QUESTIONS (3 per subject, same grade)
     # =====================================================
 
     def start_questions(self, event=None):
 
         self.root.unbind("<Return>")
 
-        # Build list of ALL unused questions across ALL grades
-        available = []
+        grade_questions = [q for q in QUESTIONS[self.grade]
+                           if (q["subject"] + q["q"]) not in self.used_questions]
 
-        for grade in QUESTIONS:
-            for q in QUESTIONS[grade]:
-                qid = q["subject"] + q["q"]
-                if qid not in self.used_questions:
-                    available.append(q)
+        # Separate by subject
+        reading = [q for q in grade_questions if q["subject"] == "Reading"]
+        writing = [q for q in grade_questions if q["subject"] == "Writing"]
+        math = [q for q in grade_questions if q["subject"] == "Math"]
 
-        # If fewer than 5 remain, game is beaten
-        if len(available) < 5:
+        if len(reading) < 3 or len(writing) < 3 or len(math) < 3:
+            # Not enough questions left for a full round → final scene
             self.final_scene()
             return
 
-        random.shuffle(available)
-        self.questions = available[:5]
+        random.shuffle(reading)
+        random.shuffle(writing)
+        random.shuffle(math)
+
+        self.questions = reading[:3] + writing[:3] + math[:3]
+        random.shuffle(self.questions)
+
         self.question_index = 0
+        self.deferred_questions = []
+        self.current_attempts = 0
 
         self.show_question()
 
@@ -433,22 +479,30 @@ Press ENTER to begin.
 
     def show_question(self):
 
+        # If we finished main list, go to deferred
         if self.question_index >= len(self.questions):
-            self.education_wins += 1
-            self.boxing_instructions()
-            return
+
+            if self.deferred_questions:
+                self.questions = self.deferred_questions
+                self.deferred_questions = []
+                self.question_index = 0
+            else:
+                # All 9 answered correctly
+                self.education_wins += 1
+                self.boxing_instructions()
+                return
 
         self.clear_screen()
 
         q = self.questions[self.question_index]
-        qid = q["subject"] + q["q"]
+        self.current_attempts = 0
 
-        # GLOBAL non‑repeat tracking
-        self.used_questions.append(qid)
+        self.current_question_id = q["subject"] + q["q"]
+        self.used_questions.append(self.current_question_id)
 
         tk.Label(
             self.root,
-            text=q["subject"],
+            text=f"{q['subject']} Question",
             font=("Arial", 34, "bold"),
             fg="gold",
             bg="black"
@@ -457,11 +511,11 @@ Press ENTER to begin.
         tk.Label(
             self.root,
             text=q["q"],
-            font=("Arial", 32),
+            font=("Arial", 30),
             fg="white",
             bg="black",
             wraplength=1200
-        ).pack(pady=50)
+        ).pack(pady=40)
 
         self.answer_var = tk.StringVar()
         choices = q["choices"][:]
@@ -477,7 +531,16 @@ Press ENTER to begin.
                 fg="white",
                 bg="black",
                 selectcolor="darkred"
-            ).pack(pady=10)
+            ).pack(pady=8)
+
+        # Progress label
+        tk.Label(
+            self.root,
+            text=f"Correct so far: {self.total_correct_so_far()}/9",
+            font=("Arial", 22),
+            fg="cyan",
+            bg="black"
+        ).pack(pady=10)
 
         tk.Button(
             self.root,
@@ -487,21 +550,92 @@ Press ENTER to begin.
             fg="white",
             width=15,
             command=self.check_answer
-        ).pack(pady=40)
+        ).pack(pady=30)
 
     # =====================================================
-    # CHECK ANSWER
+    # TOTAL CORRECT SO FAR (for display)
+    # =====================================================
+
+    def total_correct_so_far(self):
+        # Each round is 9 questions; we don't track per-question correctness
+        # so we approximate by: questions already passed in this round
+        # (index) + already completed rounds * 9
+        return self.question_index + (self.education_wins * 9)
+
+    # =====================================================
+    # HINT GENERATOR
+    # =====================================================
+
+    def get_hint(self, question):
+        answer = str(question["a"])
+        if len(answer) > 1:
+            return f"Hint: The answer starts with '{answer[0]}'."
+        else:
+            return "Hint: Think carefully about the choices."
+
+    # =====================================================
+    # CHECK ANSWER (2 attempts, skip option)
     # =====================================================
 
     def check_answer(self):
 
-        current = self.questions[self.question_index]
+        if not self.questions:
+            return
 
-        if self.answer_var.get() == current["a"]:
+        current = self.questions[self.question_index]
+        selected = self.answer_var.get()
+
+        if selected == current["a"]:
+            # Correct
+            self.show_progress_meter()
             self.question_index += 1
             self.show_question()
         else:
-            messagebox.showinfo("Incorrect", "Try again.")
+            # Incorrect
+            self.current_attempts += 1
+            hint = self.get_hint(current)
+
+            if self.current_attempts < 2:
+                messagebox.showinfo("Incorrect", f"Try again.\n\n{hint}")
+            else:
+                # Ask to skip or keep trying
+                if messagebox.askyesno(
+                    "Skip Question?",
+                    f"Incorrect again.\n\n{hint}\n\nDo you want to move on and come back later?"
+                ):
+                    # Defer this question
+                    self.deferred_questions.append(current)
+                    self.question_index += 1
+                    self.show_question()
+                else:
+                    # Keep trying same question
+                    messagebox.showinfo("Keep Trying", "Give it another shot!")
+
+    # =====================================================
+    # PROGRESS METER (3 seconds)
+    # =====================================================
+
+    def show_progress_meter(self):
+
+        top = tk.Toplevel(self.root)
+        top.overrideredirect(True)
+        top.configure(bg="black")
+
+        x = self.root.winfo_x() + 500
+        y = self.root.winfo_y() + 300
+        top.geometry(f"400x120+{x}+{y}")
+
+        correct_count = self.total_correct_so_far() + 1  # this correct answer
+
+        tk.Label(
+            top,
+            text=f"Correct Answers: {correct_count} / 90",
+            font=("Arial", 22, "bold"),
+            fg="lime",
+            bg="black"
+        ).pack(expand=True, fill="both", padx=10, pady=10)
+
+        top.after(3000, top.destroy)
     # =====================================================
     # BOXING INSTRUCTIONS
     # =====================================================
@@ -513,18 +647,18 @@ Press ENTER to begin.
         boss = BOSSES[self.current_boss]
 
         text = f"""
-NEXT OPPONENT
-
-{boss['name']}
+NEXT OPPONENT: {boss['name']}
 
 CONTROLS
 
 • HOLD UP = Block Head Punch
 • HOLD DOWN = Block Body Punch
-• PRESS SPACE = Counter Punch
+• PRESS ENTER = Counter Punch (1 second window)
 
 BLOCK FIRST
 THEN COUNTER
+
+Land 3 counter punches to win the round.
 
 Press ENTER to fight.
 """
@@ -555,8 +689,8 @@ Press ENTER to fight.
         self.counter_window_open = False
         self.counter_ready = False
 
-        self.player_health = 100
-        self.enemy_health = 100
+        self.player_health = 3          # 3 hits allowed
+        self.enemy_health = 3           # 3 counter punches to win
 
         boss = BOSSES[self.current_boss]
         self.enemy_speed = boss["speed"]
@@ -594,12 +728,12 @@ Press ENTER to fight.
             760, 390, 840, 470, fill="black"
         )
 
-        # HEALTH BARS
+        # HEALTH BARS (3 hits each)
         self.player_bar = self.canvas.create_rectangle(
-            100, 80, 400, 110, fill="lime"
+            100, 80, 100 + (self.player_health * 100), 110, fill="lime"
         )
         self.enemy_bar = self.canvas.create_rectangle(
-            1100, 80, 1400, 110, fill="red"
+            1400 - (self.enemy_health * 100), 80, 1400, 110, fill="red"
         )
 
         # STATUS TEXT
@@ -610,6 +744,9 @@ Press ENTER to fight.
             fill="gold"
         )
 
+        # Bind ENTER for countering
+        self.root.bind("<Return>", self.counter_attack)
+
         # Start enemy attack loop
         self.root.after(2500, self.enemy_attack)
 
@@ -619,7 +756,6 @@ Press ENTER to fight.
 
     def enemy_attack(self):
 
-        # Prevent overlapping attacks or attacks during counter window
         if self.match_over or self.enemy_attacking or self.counter_window_open:
             return
 
@@ -657,11 +793,11 @@ Press ENTER to fight.
             self.counter_ready = True
             self.counter_window_open = True
 
-            # Enemy frozen during counter window
-            self.root.after(2000, self.close_counter_window)
+            # 1‑second counter window
+            self.root.after(1000, self.close_counter_window)
 
         else:
-            self.player_health -= 20
+            self.player_health -= 1
             self.canvas.itemconfig(self.status, text="YOU GOT HIT!")
             self.update_health()
 
@@ -698,7 +834,7 @@ Press ENTER to fight.
         self.blocking_down = False
 
     # =====================================================
-    # COUNTER ATTACK
+    # COUNTER ATTACK (ENTER KEY)
     # =====================================================
 
     def counter_attack(self, event):
@@ -709,13 +845,13 @@ Press ENTER to fight.
         self.counter_ready = False
         self.counter_window_open = False
 
-        self.enemy_health -= 25
+        self.enemy_health -= 1
 
         # Counter punch animation
         self.canvas.coords(self.player_glove, 760, 360, 860, 450)
-        self.canvas.itemconfig(self.status, text="COUNTER PUNCH LANDED!")
+        self.canvas.itemconfig(self.status, text="COUNTER PUNCH!")
 
-        self.root.after(400, self.reset_glove)
+        self.root.after(300, self.reset_glove)
         self.update_health()
 
     # =====================================================
@@ -732,10 +868,8 @@ Press ENTER to fight.
     def update_health(self):
 
         # Update bars
-        self.canvas.coords(self.player_bar, 100, 80, 100 + (self.player_health * 3), 110)
-        self.canvas.coords(self.enemy_bar, 1400 - (self.enemy_health * 3), 80, 1400, 110)
-
-        # DO NOT reset enemy glove here — keeps animation visible
+        self.canvas.coords(self.player_bar, 100, 80, 100 + (self.player_health * 100), 110)
+        self.canvas.coords(self.enemy_bar, 1400 - (self.enemy_health * 100), 80, 1400, 110)
 
         # Check KO
         if self.player_health <= 0:
@@ -778,6 +912,14 @@ Press ENTER to fight.
 
         self.canvas.itemconfig(self.status, text="KNOCKOUT WIN!")
 
+        # Award 10 points
+        self.points += 10
+        self.boxing_wins += 1
+
+        # Increase difficulty
+        if self.current_boss < len(BOSSES) - 1:
+            self.current_boss += 1
+
         self.root.after(2500, self.victory)
 
     # =====================================================
@@ -794,23 +936,22 @@ Press ENTER to fight.
 
     def victory(self):
 
-        self.boxing_wins += 1
-
-        # Move to next boss if available
-        if self.current_boss < len(BOSSES) - 1:
-            self.current_boss += 1
-
-        # If BOTH goals reached → final scene
-        if self.education_wins >= 10 and self.boxing_wins >= 10:
-            self.final_scene()
-            return
-
+        # Show round summary
         messagebox.showinfo(
-            "Victory",
-            f"Education Wins: {self.education_wins}/10\n"
+            "Round Complete",
+            f"You won the boxing match!\n\n"
+            f"+10 Points Earned\n"
+            f"Total Points: {self.points}/100\n"
+            f"Education Rounds: {self.education_wins}/10\n"
             f"Boxing Wins: {self.boxing_wins}/10"
         )
 
+        # Check if game is fully won
+        if self.points >= 100:
+            self.final_scene()
+            return
+
+        # Continue to next education round
         self.education_instructions()
 
     # =====================================================
@@ -830,33 +971,64 @@ Press ENTER to fight.
             font=("Arial", 60, "bold"),
             fg="gold",
             bg="black"
-        ).pack(pady=80)
+        ).pack(pady=60)
 
         tk.Label(
             self.root,
-            text="YOU BEAT THE ENTIRE GAME!",
+            text=f"Congratulations, {self.player_name}!",
             font=("Arial", 40, "bold"),
-            fg="lime",
+            fg="white",
             bg="black"
-        ).pack(pady=30)
+        ).pack(pady=20)
 
         tk.Label(
             self.root,
-            text="THE GREATEST SOL FIGHTER EVER",
-            font=("Arial", 34, "bold"),
+            text="You mastered all 90 SOL questions\nand defeated all 10 opponents!",
+            font=("Arial", 32),
             fg="cyan",
             bg="black"
-        ).pack(pady=30)
+        ).pack(pady=20)
 
-        tk.Button(
+        tk.Label(
             self.root,
-            text="PLAY AGAIN",
-            font=("Arial", 28, "bold"),
-            bg="green",
-            fg="white",
-            width=20,
-            command=self.start_menu
-        ).pack(pady=60)
+            text="🏅 You earned the SOL Champion Medal! 🏅",
+            font=("Arial", 34, "bold"),
+            fg="lime",
+            bg="black"
+        ).pack(pady=40)
+
+        # 10‑second dance animation (simple text animation)
+        dance_label = tk.Label(
+            self.root,
+            text="💃🕺 CELEBRATION DANCE! 🕺💃",
+            font=("Arial", 36, "bold"),
+            fg="yellow",
+            bg="black"
+        )
+        dance_label.pack(pady=40)
+
+        def flash():
+            current = dance_label.cget("fg")
+            dance_label.config(fg="yellow" if current == "red" else "red")
+            self.root.after(300, flash)
+
+        flash()
+
+        # End game after 10 seconds
+        self.root.after(10000, self.end_game)
+
+    # =====================================================
+    # END GAME → Return to Start Menu
+    # =====================================================
+
+    def end_game(self):
+
+        messagebox.showinfo(
+            "Game Complete",
+            "Thank you for playing SOL Punch Out!\nReturning to main menu."
+        )
+
+        self.start_menu()
 
     # =====================================================
     # RESTART BOXING (after losing)
@@ -864,7 +1036,7 @@ Press ENTER to fight.
 
     def restart_boxing(self):
 
-        messagebox.showinfo("Defeat", "You lost the fight.")
+        messagebox.showinfo("Defeat", "You were knocked out. Try again!")
         self.start_boxing()
 
 # =========================================================
